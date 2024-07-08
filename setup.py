@@ -10,6 +10,7 @@ setup(
                 "tma_kernels.cpp",
                 "tma_kernels_cuda.cu",
             ],
+            libraries=["cuda"]
         )
     ],
     cmdclass={"build_ext": BuildExtension.with_options(no_python_abi_suffix=True)},
