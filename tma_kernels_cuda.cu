@@ -1,4 +1,4 @@
-#include "tma_kernels.h"
+#include "tma_kernels_cuda.h"
 #include <stdio.h>
 
 __global__ void grid_constant_kernel(float* dst, const float* src, int M, int N){
