@@ -30,7 +30,7 @@ sudo nvidia-smi -lgc 1140 -i 6 >& /dev/null            # lock to 1410 MHz.  The 
 # GPU6  SYS     SYS     SYS     SYS     SYS     SYS      X      PXB     SYS     SYS     SYS     NODE    72-95,168-191   3
 
 export CUDA_VISIBLE_DEVICES=6
-numactl -m 3 -c 3 "$@"
+numactl -m 1 -c 1 "$@"
 
 # Unlock GPU clock
-sudo nvidia-smi -rgc -i 6 >& /dev/nul
+sudo nvidia-smi -rgc -i 6 >& /dev/null
