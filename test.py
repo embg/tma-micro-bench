@@ -8,6 +8,8 @@ if __name__ == "__main__":
         (128 * 7, 256 * 13),
         (4096, 4096),
         (64, 64),
+        (4096, 64),
+        (64, 4096)
     ]
     for m,n in shapes:
         src = torch.randn(m, n, device="cuda")
