@@ -2,6 +2,7 @@
 
 #include <cstddef>
 
+// Make sure to keep this in sync with tma_triton_kernel.py
 constexpr size_t BLOCK_M = 64;
 constexpr size_t BLOCK_N = 64;
 

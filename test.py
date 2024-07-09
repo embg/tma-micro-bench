@@ -1,6 +1,16 @@
 import torch
-
+import tma_triton_kernel
 torch.ops.load_library("tma_kernels.so")
+
+def test(tma_copy_func, m, n):
+    src = torch.randn(m, n, device="cuda")
+    dst = torch.randn(m, n, device="cuda")
+    val = torch.clone(src)
+    assert not torch.equal(src, dst)
+    tma_copy_func(dst, src)
+    torch.cuda.synchronize()
+    assert torch.equal(val, dst)
+    assert torch.equal(val, src)
 
 if __name__ == "__main__":
     shapes = [
@@ -12,11 +22,5 @@ if __name__ == "__main__":
         (64, 4096)
     ]
     for m,n in shapes:
-        src = torch.randn(m, n, device="cuda")
-        dst = torch.randn(m, n, device="cuda")
-        val = torch.clone(src)
-        src != dst
-        torch.ops.tma_kernels.copy_2d_tma_grid_const(dst, src)
-        torch.cuda.synchronize()
-        src == dst
-        dst == val
+        test(torch.ops.tma_kernels.copy_2d_tma_grid_const, m, n)
+        test(tma_triton_kernel.copy_2d_tma_triton, m, n)
