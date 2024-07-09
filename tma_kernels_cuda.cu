@@ -53,7 +53,7 @@ __global__ void grid_constant_kernel(
   barrier::arrival_token token;
   if (threadIdx.x == 0) {
     // Initiate bulk tensor copy.
-    cde::cp_async_bulk_tensor_2d_global_to_shared(&smem_buffer, &src_desc, offs_m, offs_n, bar);
+    cde::cp_async_bulk_tensor_2d_global_to_shared(&smem_buffer, &src_desc, offs_n, offs_m, bar);
     // Arrive on the barrier and tell how many bytes are expected to come in.
     token = cuda::device::barrier_arrive_tx(bar, 1, sizeof(smem_buffer));
   } else {
@@ -70,7 +70,7 @@ __global__ void grid_constant_kernel(
 
   // Initiate TMA transfer to copy shared memory to global memory
   if (threadIdx.x == 0) {
-    cde::cp_async_bulk_tensor_2d_shared_to_global(&dst_desc, offs_m, offs_n, &smem_buffer);
+    cde::cp_async_bulk_tensor_2d_shared_to_global(&dst_desc, offs_n, offs_m, &smem_buffer);
     // Wait for TMA transfer to have finished reading shared memory.
     // Create a "bulk async-group" out of the previous bulk copy operation.
     cde::cp_async_bulk_commit_group();
