@@ -22,13 +22,14 @@ namespace cde = cuda::device::experimental;
 
 #define cdiv(a, b) (((a) + ((b) - 1)) / (b))
 
-__device__ uint8_t TEMP[128 * 256]; // @nocommit
-
 __global__ void grid_constant_kernel(
     float* dst, const __grid_constant__ CUtensorMap dst_desc,
     const float* src,  const __grid_constant__ CUtensorMap src_desc,
     size_t M, size_t N)
 {
+  // Big-ass dynamic shared memory buffer
+  extern __shared__ uint8_t* smem_base;
+
   // Calculate coordinates for load / store
   const size_t grid_n = cdiv(N, BLOCK_N);
   const size_t pid_m = blockIdx.x / grid_n;
@@ -36,30 +37,14 @@ __global__ void grid_constant_kernel(
   const size_t offs_m = pid_m * BLOCK_M;
   const size_t offs_n = pid_n * BLOCK_N;
 
-//   if (threadIdx.x == 0) {
-//     const size_t idx1 = blockIdx.x % 256;
-//     const size_t idx2 = (blockIdx.x * 42) % 256;
-//     uint8_t* addr1 = &TEMP[idx1 * 128];
-//     uint8_t* addr2 = &TEMP[idx2 * 128];
-//     *( (uint32_t*)addr1 ) = blockIdx.x;
-//     *( (uint32_t*)addr2 ) = blockIdx.x + 42;
-//     asm volatile (
-//         "fence.proxy.tensormap::generic.acquire.gpu [%0], %1; // 8."
-//         :
-//         : "l"(addr1), "n"(128)
-//         : "memory"
-//     );
-//     asm volatile (
-//         "fence.proxy.tensormap::generic.acquire.gpu [%0], %1; // 8."
-//         :
-//         : "l"(addr2), "n"(128)
-//         : "memory"
-//     );
-//   }
+  // TMA code paste
+  // P1475489752
 
   // The destination shared memory buffer of a bulk tensor operation should be
-  // 128 byte aligned.
-  __shared__ alignas(128) float smem_buffer[BLOCK_M][BLOCK_N];
+  // 128-byte aligned.
+  const size_t rem = (size_t)(smem_base) % 128;
+  const size_t rem_inv = 128 - rem;
+  uint8_t* const tma_buf = smem_base + rem_inv;
 
   // Initialize shared memory barrier with the number of threads participating in the barrier.
   #pragma nv_diag_suppress static_var_with_dynamic_init
@@ -77,9 +62,9 @@ __global__ void grid_constant_kernel(
   barrier::arrival_token token;
   if (threadIdx.x == 0) {
     // Initiate bulk tensor copy.
-    cde::cp_async_bulk_tensor_2d_global_to_shared(&smem_buffer, &src_desc, offs_n, offs_m, bar);
+    cde::cp_async_bulk_tensor_2d_global_to_shared(tma_buf, &src_desc, offs_n, offs_m, bar);
     // Arrive on the barrier and tell how many bytes are expected to come in.
-    token = cuda::device::barrier_arrive_tx(bar, 1, sizeof(smem_buffer));
+    token = cuda::device::barrier_arrive_tx(bar, 1, BLOCK_M * BLOCK_N * sizeof(float));
   } else {
     // Other threads just arrive.
     token = bar.arrive();
@@ -94,7 +79,7 @@ __global__ void grid_constant_kernel(
 
   // Initiate TMA transfer to copy shared memory to global memory
   if (threadIdx.x == 0) {
-    cde::cp_async_bulk_tensor_2d_shared_to_global(&dst_desc, offs_n, offs_m, &smem_buffer);
+    cde::cp_async_bulk_tensor_2d_shared_to_global(&dst_desc, offs_n, offs_m, tma_buf);
     // Wait for TMA transfer to have finished reading shared memory.
     // Create a "bulk async-group" out of the previous bulk copy operation.
     cde::cp_async_bulk_commit_group();
@@ -136,9 +121,9 @@ class TmaDesc {
         ));
     }
 
-    TmaDesc(TmaDesc&& other) = delete;
     TmaDesc(const TmaDesc& other) = delete;
-    TmaDesc& operator=(TmaDesc& other) = delete;
+    TmaDesc& operator=(const TmaDesc& other) = delete;
+    TmaDesc(TmaDesc&& other) = delete;
     TmaDesc& operator=(TmaDesc&& other) = delete;
     ~TmaDesc() = default;
     
@@ -156,19 +141,11 @@ void launch_grid_constant_kernel(float* dst, float* src, size_t M, size_t N)
     TmaDesc dst_desc(dst, M, N);
     dim3 threadsPerBlock(32, 1, 1);
     dim3 numBlocks(cdiv(M, BLOCK_M) * cdiv(N, BLOCK_N), 1, 1);
-    grid_constant_kernel<<<numBlocks, threadsPerBlock>>>(dst, dst_desc.get(),
-                                                         src, src_desc.get(),
-                                                         M, N);
-}
-
-void launch_tensormap_replace_kernel(float* dst, float* src, size_t M, size_t N)
-{
-    // Pass nullptr, build the correct descriptor on-device
-    TmaDesc src_desc(src, M, N);
-    TmaDesc dst_desc(dst, M, N);
-    dim3 threadsPerBlock(32, 1, 1);
-    dim3 numBlocks(cdiv(M, BLOCK_M) * cdiv(N, BLOCK_N), 1, 1);
-    grid_constant_kernel<<<numBlocks, threadsPerBlock>>>(dst, dst_desc.get(),
+    cudaFuncAttributes attr;
+    cudaFuncGetAttributes(&attr, grid_constant_kernel);
+    const size_t sharedSizeBytes = attr.sharedSizeBytes;
+    cudaFuncSetAttribute(grid_constant_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, 227 * 1024 - sharedSizeBytes);
+    grid_constant_kernel<<<numBlocks, threadsPerBlock, 227 * 1024 - sharedSizeBytes >>>(dst, dst_desc.get(),
                                                          src, src_desc.get(),
                                                          M, N);
 }

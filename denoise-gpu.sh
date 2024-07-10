@@ -5,9 +5,9 @@
 # https://developer.download.nvidia.com/video/gputechconf/gtc/2019/presentation/s9956-best-practices-when-benchmarking-cuda-applications_V2.pdf
 
 # Lock GPU clocks
-sudo nvidia-smi -i 6 -pm 1 >&/dev/null                # persistent mode
-sudo nvidia-smi --power-limit=330 -i 6 >& /dev/null   # lock to 330 W
-sudo nvidia-smi -lgc 1140 -i 6 >& /dev/null            # lock to 1410 MHz.  The max on A100 is 1410 MHz
+sudo nvidia-smi -i 5 -pm 1 >&/dev/null                # persistent mode
+sudo nvidia-smi --power-limit=330 -i 5 >& /dev/null   # lock to 330 W
+sudo nvidia-smi -lgc 1140 -i 5 >& /dev/null            # lock to 1410 MHz.  The max on A100 is 1410 MHz
 
 # TODO: On my devgpu, device 6 is apparently attached to NUMA node 3.  How did
 # I discover this?
@@ -29,8 +29,8 @@ sudo nvidia-smi -lgc 1140 -i 6 >& /dev/null            # lock to 1410 MHz.  The 
 # GPU0   X      PXB     SYS     SYS     SYS     SYS     SYS     SYS     NODE    SYS     SYS     SYS     0-23,96-119     0
 # GPU6  SYS     SYS     SYS     SYS     SYS     SYS      X      PXB     SYS     SYS     SYS     NODE    72-95,168-191   3
 
-export CUDA_VISIBLE_DEVICES=6
+export CUDA_VISIBLE_DEVICES=5
 numactl -m 1 -c 1 "$@"
 
 # Unlock GPU clock
-sudo nvidia-smi -rgc -i 6 >& /dev/null
+sudo nvidia-smi -rgc -i 5 >& /dev/null
