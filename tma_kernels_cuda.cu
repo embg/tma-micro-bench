@@ -177,7 +177,7 @@ __global__ void grid_constant_kernel(
     const __grid_constant__ CUtensorMap desc,
     size_t M, size_t N, int fence)
 {
-  if (1) {
+  if (fence) {
     tma_descriptor_fence_acquire(&desc);
   }
   tma_add1_body(&desc, M, N);
@@ -199,5 +199,14 @@ __global__ void fence_kernel(
   tma_descriptor_fence_acquire(desc_gmem_ptr);
   tma_add1_body((void*)desc_gmem_ptr, M, N);
 }
+
+void launch_fence_kernel(uint8_t* desc, size_t M, size_t N)
+{
+    dim3 threadsPerBlock(32, 1, 1);
+    dim3 numBlocks(cdiv(M, BLOCK_M) * cdiv(N, BLOCK_N), 1, 1);
+    const size_t dynamicSharedSize = maximize_smem_usage(fence_kernel);
+    fence_kernel<<<numBlocks, threadsPerBlock, dynamicSharedSize>>>(desc, M, N);
+}
+
 
 // launch_ondevice_kernel
