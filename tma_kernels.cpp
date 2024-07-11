@@ -29,6 +29,24 @@ void copy_2d_tma_grid_const(at::Tensor dst, at::Tensor src) {
   );
 }
 
+void fill_tma_desc_for_tensor(at::Tensor cpu_desc, at::Tensor device_tensor) {
+  if (!device_tensor.device().is_cuda()) {
+    throw std::runtime_error("device_tensor must be on cuda");
+  }
+  if (!cpu_desc.device().is_cpu()) {
+    throw std::runtime_error("cpu_desc must be on cpu");
+  }
+  TmaDesc desc(device_tensor.data_ptr<float>(), device_tensor.size(0), device_tensor.size(1));
+  CUtensorMap desc_raw = desc.get();
+  memcpy(cpu_desc.data_ptr<char>(), &desc_raw, sizeof(CUtensorMap));
+}
+
+void experiment_teardown(at::Tensor dst, at::Tensor src) {
+  
+}
+
 TORCH_LIBRARY(tma_kernels, m) {
   m.def("copy_2d_tma_grid_const", copy_2d_tma_grid_const);
+  m.def("experiment_setup", experiment_setup);
+  m.def("fill_tma_desc_for_tensor", fill_tma_desc_for_tensor);
 }

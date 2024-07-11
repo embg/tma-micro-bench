@@ -72,11 +72,6 @@ __global__ void grid_constant_kernel(
   // Wait for the data to have arrived.
   bar.wait(std::move(token));
 
-  // Wait for shared memory writes to be visible to TMA engine.
-  // cde::fence_proxy_async_shared_cta();
-  // __syncthreads();
-  // After syncthreads, writes by all threads are visible to TMA engine.
-
   // Initiate TMA transfer to copy shared memory to global memory
   if (threadIdx.x == 0) {
     cde::cp_async_bulk_tensor_2d_shared_to_global(&dst_desc, offs_n, offs_m, tma_buf);
@@ -95,45 +90,29 @@ __global__ void grid_constant_kernel(
   }
 }
 
-class TmaDesc {
-  public:
-    TmaDesc(float* gmem_ptr, size_t M, size_t N) {
-        // Note: fastest-moving dimension always comes first here
-        constexpr uint32_t rank = 2;
-        const uint64_t size[rank] = {N, M}; // elements
-        const uint64_t stride[rank - 1] = {N * sizeof(float)}; // bytes
-        const uint32_t box_size[rank] = {BLOCK_N, BLOCK_M}; // elements
-        const uint32_t elem_stride[rank] = {1, 1}; // elements
+TmaDesc::TmaDesc(float* gmem_ptr, size_t M, size_t N) {
+  // Note: fastest-moving dimension always comes first here
+  constexpr uint32_t rank = 2;
+  const uint64_t size[rank] = {N, M}; // elements
+  const uint64_t stride[rank - 1] = {N * sizeof(float)}; // bytes
+  const uint32_t box_size[rank] = {BLOCK_N, BLOCK_M}; // elements
+  const uint32_t elem_stride[rank] = {1, 1}; // elements
 
-        CUDA_CHECK(cuTensorMapEncodeTiled(
-            &desc_,
-            CUtensorMapDataType::CU_TENSOR_MAP_DATA_TYPE_FLOAT32,
-            rank,
-            (void*)gmem_ptr,
-            size,
-            stride,
-            box_size,
-            elem_stride,
-            CUtensorMapInterleave::CU_TENSOR_MAP_INTERLEAVE_NONE,
-            CUtensorMapSwizzle::CU_TENSOR_MAP_SWIZZLE_NONE,
-            CUtensorMapL2promotion::CU_TENSOR_MAP_L2_PROMOTION_L2_128B,
-            CUtensorMapFloatOOBfill::CU_TENSOR_MAP_FLOAT_OOB_FILL_NONE
-        ));
-    }
-
-    TmaDesc(const TmaDesc& other) = delete;
-    TmaDesc& operator=(const TmaDesc& other) = delete;
-    TmaDesc(TmaDesc&& other) = delete;
-    TmaDesc& operator=(TmaDesc&& other) = delete;
-    ~TmaDesc() = default;
-    
-    CUtensorMap get() {
-        return desc_;
-    }
-
-  private:
-    CUtensorMap desc_;
-};
+  CUDA_CHECK(cuTensorMapEncodeTiled(
+      &desc_,
+      CUtensorMapDataType::CU_TENSOR_MAP_DATA_TYPE_FLOAT32,
+      rank,
+      (void*)gmem_ptr,
+      size,
+      stride,
+      box_size,
+      elem_stride,
+      CUtensorMapInterleave::CU_TENSOR_MAP_INTERLEAVE_NONE,
+      CUtensorMapSwizzle::CU_TENSOR_MAP_SWIZZLE_NONE,
+      CUtensorMapL2promotion::CU_TENSOR_MAP_L2_PROMOTION_L2_128B,
+      CUtensorMapFloatOOBfill::CU_TENSOR_MAP_FLOAT_OOB_FILL_NONE
+  ));
+}
 
 void launch_grid_constant_kernel(float* dst, float* src, size_t M, size_t N)
 {
