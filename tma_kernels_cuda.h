@@ -8,7 +8,7 @@
 constexpr size_t BLOCK_M = 64;
 constexpr size_t BLOCK_N = 64;
 
-void launch_grid_constant_kernel(float* dst, float* src, size_t M, size_t N);
+void launch_grid_constant_kernel(float* tensor, size_t M, size_t N);
 
 class TmaDesc {
   public:
@@ -20,8 +20,8 @@ class TmaDesc {
     TmaDesc& operator=(TmaDesc&& other) = delete;
     ~TmaDesc() = default;
     
-    CUtensorMap get() {
-        return desc_;
+    CUtensorMap* get() {
+        return &desc_;
     }
 
   private:
