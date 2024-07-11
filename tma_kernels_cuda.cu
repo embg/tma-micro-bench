@@ -69,6 +69,23 @@ void tma_descriptor_fence_acquire(const void* desc_ptr)
     : "memory");
 }
 
+__device__ __forceinline__
+void tma_descriptor_fence_release()
+{
+  asm volatile ("fence.proxy.tensormap::generic.release.gpu;");
+}
+
+__device__ __forceinline__
+void tma_descriptor_replace_addr_in_global_mem(const void* desc_ptr)
+{
+  uint64_t gmem_int_desc = reinterpret_cast<uint64_t>(desc_ptr);
+  asm volatile (
+    "tensormap.replace.tile.elemtype.global.b1024.b32 [%0], 2;"
+    :
+    : "l"(gmem_int_desc)
+    : "memory");
+}
+
 __device__ __forceinline__ void tma_add1_body(
   const void* desc, size_t M, size_t N
 ) {
@@ -196,6 +213,8 @@ __global__ void fence_kernel(
     uint8_t* desc_gmem_ptr,
     size_t M, size_t N)
 {
+  tma_descriptor_replace_addr_in_global_mem(desc_gmem_ptr);
+  tma_descriptor_fence_release();
   tma_descriptor_fence_acquire(desc_gmem_ptr);
   tma_add1_body((void*)desc_gmem_ptr, M, N);
 }
