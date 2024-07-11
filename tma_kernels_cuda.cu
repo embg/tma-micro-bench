@@ -53,6 +53,22 @@ void tma_store(
         : "memory");
 }
 
+__device__ __forceinline__
+void tma_descriptor_fence_acquire(const void* desc_ptr)
+{
+  uint64_t gmem_int_desc = reinterpret_cast<uint64_t>(desc_ptr);
+  asm volatile (
+    "fence.proxy.tensormap::generic.acquire.gpu [%0], 128;"
+    :
+    : "l"(gmem_int_desc)
+    : "memory");
+  asm volatile (
+    "cvta.global.u64 %0, %0;"
+    :
+    : "l"(gmem_int_desc), "l"(gmem_int_desc)
+    : "memory");
+}
+
 __device__ __forceinline__ void tma_add1_body(
   const void* desc, size_t M, size_t N
 ) {
@@ -159,25 +175,28 @@ size_t maximize_smem_usage(T kernel) {
 
 __global__ void grid_constant_kernel(
     const __grid_constant__ CUtensorMap desc,
-    size_t M, size_t N)
+    size_t M, size_t N, int fence)
 {
+  if (1) {
+    tma_descriptor_fence_acquire(&desc);
+  }
   tma_add1_body(&desc, M, N);
 }
 
-void launch_grid_constant_kernel(float* tensor, size_t M, size_t N)
+void launch_grid_constant_kernel(float* tensor, size_t M, size_t N, int fence)
 {
     TmaDesc desc(tensor, M, N);
     dim3 threadsPerBlock(32, 1, 1);
     dim3 numBlocks(cdiv(M, BLOCK_M) * cdiv(N, BLOCK_N), 1, 1);
     const size_t dynamicSharedSize = maximize_smem_usage(grid_constant_kernel);
-    grid_constant_kernel<<<numBlocks, threadsPerBlock, dynamicSharedSize>>>(*desc.get(), M, N);
+    grid_constant_kernel<<<numBlocks, threadsPerBlock, dynamicSharedSize>>>(*desc.get(), M, N, fence);
 }
 
 __global__ void fence_kernel(
     uint8_t* desc_gmem_ptr,
     size_t M, size_t N)
 {
-  
+  tma_descriptor_fence_acquire(desc_gmem_ptr);
   tma_add1_body((void*)desc_gmem_ptr, M, N);
 }
 
