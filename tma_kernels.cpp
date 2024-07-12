@@ -2,15 +2,14 @@
 #include "ATen/ATen.h"
 #include "torch/extension.h"
 
-void add1_tma_grid_const(at::Tensor tensor, bool fence) {
+void add1_tma_grid_const(at::Tensor tensor) {
   if (tensor.scalar_type() != at::kFloat) {
     throw std::runtime_error("tensor.scalar_type() != at::kFloat");
   }
   launch_grid_constant_kernel(
       tensor.data_ptr<float>(),
       tensor.size(0),
-      tensor.size(1),
-      fence
+      tensor.size(1)
   );
 }
 
@@ -19,6 +18,17 @@ void add1_tma_byref_excl_memcpy(at::Tensor desc, at::Tensor tensor) {
     throw std::runtime_error("tensor.scalar_type() != at::kFloat");
   }
   launch_fence_kernel(
+      desc.data_ptr<uint8_t>(),
+      tensor.size(0),
+      tensor.size(1)
+  );
+}
+
+void add1_tma_ondevice(at::Tensor desc, at::Tensor tensor) {
+  if (tensor.scalar_type() != at::kFloat) {
+    throw std::runtime_error("tensor.scalar_type() != at::kFloat");
+  }
+  launch_ondevice_kernel(
       desc.data_ptr<uint8_t>(),
       tensor.size(0),
       tensor.size(1)
@@ -40,4 +50,5 @@ TORCH_LIBRARY(tma_kernels, m) {
   m.def("add1_tma_grid_const", add1_tma_grid_const);
   m.def("fill_tma_desc_for_tensor", fill_tma_desc_for_tensor);
   m.def("add1_tma_byref_excl_memcpy", add1_tma_byref_excl_memcpy);
+  m.def("add1_tma_ondevice", add1_tma_ondevice);
 }

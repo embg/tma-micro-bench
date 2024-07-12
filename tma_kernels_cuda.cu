@@ -192,29 +192,24 @@ size_t maximize_smem_usage(T kernel) {
 
 __global__ void grid_constant_kernel(
     const __grid_constant__ CUtensorMap desc,
-    size_t M, size_t N, int fence)
+    size_t M, size_t N)
 {
-  if (fence) {
-    tma_descriptor_fence_acquire(&desc);
-  }
   tma_add1_body(&desc, M, N);
 }
 
-void launch_grid_constant_kernel(float* tensor, size_t M, size_t N, int fence)
+void launch_grid_constant_kernel(float* tensor, size_t M, size_t N)
 {
     TmaDesc desc(tensor, M, N);
     dim3 threadsPerBlock(32, 1, 1);
     dim3 numBlocks(cdiv(M, BLOCK_M) * cdiv(N, BLOCK_N), 1, 1);
     const size_t dynamicSharedSize = maximize_smem_usage(grid_constant_kernel);
-    grid_constant_kernel<<<numBlocks, threadsPerBlock, dynamicSharedSize>>>(*desc.get(), M, N, fence);
+    grid_constant_kernel<<<numBlocks, threadsPerBlock, dynamicSharedSize>>>(*desc.get(), M, N);
 }
 
 __global__ void fence_kernel(
     uint8_t* desc_gmem_ptr,
     size_t M, size_t N)
 {
-  tma_descriptor_replace_addr_in_global_mem(desc_gmem_ptr);
-  tma_descriptor_fence_release();
   tma_descriptor_fence_acquire(desc_gmem_ptr);
   tma_add1_body((void*)desc_gmem_ptr, M, N);
 }
@@ -225,6 +220,24 @@ void launch_fence_kernel(uint8_t* desc, size_t M, size_t N)
     dim3 numBlocks(cdiv(M, BLOCK_M) * cdiv(N, BLOCK_N), 1, 1);
     const size_t dynamicSharedSize = maximize_smem_usage(fence_kernel);
     fence_kernel<<<numBlocks, threadsPerBlock, dynamicSharedSize>>>(desc, M, N);
+}
+
+__global__ void ondevice_kernel(
+    uint8_t* desc_gmem_ptr,
+    size_t M, size_t N)
+{
+  tma_descriptor_replace_addr_in_global_mem(desc_gmem_ptr);
+  tma_descriptor_fence_release();
+  tma_descriptor_fence_acquire(desc_gmem_ptr);
+  tma_add1_body((void*)desc_gmem_ptr, M, N);
+}
+
+void launch_ondevice_kernel(uint8_t* desc, size_t M, size_t N)
+{
+    dim3 threadsPerBlock(32, 1, 1);
+    dim3 numBlocks(cdiv(M, BLOCK_M) * cdiv(N, BLOCK_N), 1, 1);
+    const size_t dynamicSharedSize = maximize_smem_usage(ondevice_kernel);
+    ondevice_kernel<<<numBlocks, threadsPerBlock, dynamicSharedSize>>>(desc, M, N);
 }
 
 

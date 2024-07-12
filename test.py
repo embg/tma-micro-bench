@@ -3,16 +3,22 @@ torch.ops.load_library("tma_kernels.so")
 
 gpu_desc = torch.empty(128, device="cuda", dtype=torch.uint8)
 
-def test(m, n):
+def run_grid_const(desc, tensor):
+    torch.ops.tma_kernels.add1_tma_grid_const(tensor)
+    
+def run_byref_memcpy(desc, tensor):
+    torch.ops.tma_kernels.add1_tma_byref_excl_memcpy(desc, tensor)
+    
+def run_ondevice(desc, tensor):
+    torch.ops.tma_kernels.add1_tma_ondevice(desc, tensor),
+
+def test(func, m, n):
     tensor = torch.randn(m, n, device="cuda")
     cpu_desc = torch.empty(128, device="cpu", dtype=torch.uint8)
     torch.ops.tma_kernels.fill_tma_desc_for_tensor(cpu_desc, tensor)
     gpu_desc.copy_(cpu_desc)
     val = torch.clone(tensor) + 1
-    torch.cuda.synchronize()
-    #torch.ops.tma_kernels.add1_tma_grid_const(tensor, True)
-    torch.cuda.synchronize()
-    torch.ops.tma_kernels.add1_tma_byref_excl_memcpy(gpu_desc, tensor)
+    func(gpu_desc, tensor)
     torch.cuda.synchronize()
     assert torch.allclose(val, tensor)
 
@@ -26,5 +32,6 @@ if __name__ == "__main__":
         (64, 4096)
     ]
     for m,n in shapes:
-        print("shape:",m,n)
-        test(m, n)
+        test(run_grid_const, m, n)
+        test(run_byref_memcpy, m, n)
+        test(run_ondevice, m, n)
