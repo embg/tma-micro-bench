@@ -131,7 +131,9 @@ __device__ __forceinline__ void tma_add1_body(
   for (int row = 0; row < BLOCK_M; row++) {
     const size_t rowStart = row * BLOCK_N;
     tma_buf[row][laneIdx] += 1.0;
-    tma_buf[row][laneIdx + 32] += 1.0;
+    for (int i = 0; i < 1000; i++) {
+      tma_buf[row][laneIdx + 32] *= tma_buf[row][laneIdx];
+    }
   }
   
   // Wait for shared memory writes to be visible to TMA engine.
