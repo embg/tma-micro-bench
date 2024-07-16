@@ -127,10 +127,10 @@ __device__ __forceinline__ void tma_add1_body(
   // Increment all values in the tensor
   static_assert(BLOCK_M == 64);
   static_assert(BLOCK_N == 64);
-  const size_t laneIdx = threadIdx.x & 31;
+  const size_t laneIdx = threadIdx.x * 2;
   for (int row = 0; row < BLOCK_M; row++) {
     tma_buf[row][laneIdx] += 1.0;
-    tma_buf[row][laneIdx + 32] += 1.0;
+    tma_buf[row][laneIdx + 1] += 1.0;
   }
   
   // Wait for shared memory writes to be visible to TMA engine.
@@ -238,6 +238,14 @@ void launch_ondevice_kernel(uint8_t* desc, size_t M, size_t N)
     const size_t dynamicSharedSize = maximize_smem_usage(ondevice_kernel);
     ondevice_kernel<<<numBlocks, threadsPerBlock, dynamicSharedSize>>>(desc, M, N);
 }
+/*
+constexpr size_t BW_KERNEL_GRID_SIZE = 64;
 
+void bw_kernel(const void* src, void* dst, size_t total_size) {
+    const size_t size_per_block = total_size / BW_KERNEL_GRID_SIZE;
+    const size_t start_addr = src + (size_per_block * blockIdx.x);
+    const size_t end_addr = size_per_block / 32;
+}
+*/
 
 // launch_ondevice_kernel

@@ -5,7 +5,7 @@ torch.ops.load_library("tma_kernels.so")
 configs = [
     triton.testing.Benchmark(
         x_names=["M"],
-        x_vals=[i for i in range(64, 132 * 10 * 64, 33 * 64)],
+        x_vals=[i for i in range(64, 132 * 6 * 64, 33 * 64)],
         line_arg="provider",
         # line_vals=["copy_2d_tma_grid_const", "byref_incl_memcpy", "byref_excl_memcpy", "ondevice"],
         # line_names=["grid_constant", "byref_incl_memcpy", "byref_excl_memcpy", "ondevice"],
@@ -16,11 +16,7 @@ configs = [
         args={},
         y_log=False
     )
-]
-
-cpu_desc_nopin = torch.empty(128, device="cpu", dtype=torch.uint8, pin_memory=False)
-cpu_desc_pin = torch.empty(128, device="cpu", dtype=torch.uint8, pin_memory=True)   
-gpu_desc = torch.empty(128, device="cuda", dtype=torch.uint8, pin_memory=False)   
+] 
 
 @triton.testing.perf_report(configs)
 def benchmark(M, provider):
@@ -30,28 +26,31 @@ def benchmark(M, provider):
     if provider == "copy_2d_tma_grid_const":
         def gc():
             torch.ops.tma_kernels.add1_tma_grid_const(A)
-        ms = triton.testing.do_bench(
+        ms, min_ms, max_ms = triton.testing.do_bench(
             lambda: gc(),
-            warmup = 25, rep = rep, return_mode = "min"
+            warmup = 25, rep = rep, quantiles = [0.5, 0.2, 0.8]
         )
     elif provider == "byref_incl_memcpy":
         def byref():
-            torch.ops.tma_kernels.fill_tma_desc_for_tensor(cpu_desc_pin, A)
-            gpu_desc.copy_(cpu_desc_pin, non_blocking=True)
+            cpu_desc = torch.empty(128, device="cpu", dtype=torch.uint8, pin_memory=True)   
+            torch.ops.tma_kernels.fill_tma_desc_for_tensor(cpu_desc, A)
+            gpu_desc = cpu_desc.cuda(non_blocking=True)
             torch.ops.tma_kernels.add1_tma_byref_excl_memcpy(gpu_desc, A)
-        ms = triton.testing.do_bench(byref, warmup = 25, rep = rep, return_mode = "min")
+        ms, min_ms, max_ms = triton.testing.do_bench(byref, warmup = 25, rep = rep, quantiles = [0.5, 0.2, 0.8])
     elif provider == "slow_memcpy":
         def byref2():
-            torch.ops.tma_kernels.fill_tma_desc_for_tensor(cpu_desc_nopin, A)
-            gpu_desc.copy_(cpu_desc_nopin, non_blocking=False)
+            cpu_desc = torch.empty(128, device="cpu", dtype=torch.uint8, pin_memory=False)   
+            torch.ops.tma_kernels.fill_tma_desc_for_tensor(cpu_desc, A)
+            gpu_desc = cpu_desc.cuda(non_blocking=False)
             torch.ops.tma_kernels.add1_tma_byref_excl_memcpy(gpu_desc, A)
-        ms = triton.testing.do_bench(byref2, warmup = 25, rep = rep, return_mode = "min")
+        ms, min_ms, max_ms = triton.testing.do_bench(byref2, warmup = 25, rep = rep, quantiles = [0.5, 0.2, 0.8])
     elif provider == "ondevice":
-        torch.ops.tma_kernels.fill_tma_desc_for_tensor(cpu_desc_nopin, A)
-        gpu_desc.copy_(cpu_desc_nopin, non_blocking=False)
-        ms = triton.testing.do_bench(
+        cpu_desc = torch.empty(128, device="cpu", dtype=torch.uint8, pin_memory=True)
+        torch.ops.tma_kernels.fill_tma_desc_for_tensor(cpu_desc, A)
+        gpu_desc = cpu_desc.cuda(non_blocking=True)
+        ms, min_ms, max_ms = triton.testing.do_bench(
             lambda: torch.ops.tma_kernels.add1_tma_ondevice(gpu_desc, A),
-            warmup = 25, rep = rep, return_mode = "min"
+            warmup = 25, rep = rep, quantiles = [0.5, 0.2, 0.8]
         )
     else:
         return
@@ -59,7 +58,7 @@ def benchmark(M, provider):
     def us(ms):
         return ms * 1000
     
-    return us(ms)
+    return us(ms), us(min_ms), us(max_ms)
 
 
 def main():
