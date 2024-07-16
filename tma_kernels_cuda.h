@@ -11,6 +11,7 @@ constexpr size_t BLOCK_N = 64;
 void launch_grid_constant_kernel(float* tensor, size_t M, size_t N);
 void launch_fence_kernel(uint8_t* desc, size_t M, size_t N);
 void launch_ondevice_kernel(uint8_t* desc, size_t M, size_t N);
+void launch_bad_copy_kernel(float* dst, const float* src, size_t size);
 
 class TmaDesc {
   public:

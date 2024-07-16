@@ -238,14 +238,26 @@ void launch_ondevice_kernel(uint8_t* desc, size_t M, size_t N)
     const size_t dynamicSharedSize = maximize_smem_usage(ondevice_kernel);
     ondevice_kernel<<<numBlocks, threadsPerBlock, dynamicSharedSize>>>(desc, M, N);
 }
-/*
-constexpr size_t BW_KERNEL_GRID_SIZE = 64;
 
-void bw_kernel(const void* src, void* dst, size_t total_size) {
-    const size_t size_per_block = total_size / BW_KERNEL_GRID_SIZE;
-    const size_t start_addr = src + (size_per_block * blockIdx.x);
-    const size_t end_addr = size_per_block / 32;
+constexpr size_t COPY_KERNEL_GRID_SIZE = 64;
+constexpr size_t COPY_KERNEL_THREADS_PER_BLOCK = 32 * 32;
+
+__global__ void bad_copy_kernel(float* dst, const float* src, size_t total_size) {
+    const size_t size_per_block = total_size / COPY_KERNEL_GRID_SIZE;
+    const size_t size_per_thread = size_per_block / COPY_KERNEL_THREADS_PER_BLOCK;
+    const size_t start_idx = (size_per_block * blockIdx.x) + (size_per_thread * threadIdx.x);
+    const size_t end_idx = start_idx + size_per_thread;
+    
+    // Note: intentionally non-coalesced gmem access. We want to create as
+    // many requests as possible!
+    for (size_t i = start_idx; i < end_idx; i++) {
+      dst[i] = src[i];
+    }
 }
-*/
 
-// launch_ondevice_kernel
+void launch_bad_copy_kernel(float* dst, const float* src, size_t total_size) {
+    dim3 threadsPerBlock(COPY_KERNEL_THREADS_PER_BLOCK, 1, 1);
+    dim3 numBlocks(COPY_KERNEL_GRID_SIZE, 1, 1);
+    const size_t dynamicSharedSize = maximize_smem_usage(bad_copy_kernel);
+    bad_copy_kernel<<<numBlocks, threadsPerBlock, dynamicSharedSize>>>(dst, src, total_size);
+}

@@ -35,3 +35,11 @@ if __name__ == "__main__":
         test(run_grid_const, m, n)
         test(run_byref_memcpy, m, n)
         test(run_ondevice, m, n)
+        
+    # Test copy kernel
+    A = torch.rand(4096, device="cuda", dtype=torch.float32)
+    B = torch.rand(4096, device="cuda", dtype=torch.float32)
+    torch.ops.tma_kernels.copy_on_64_SMs(B, A)
+    print(A - B)
+    assert torch.allclose(A, B)
+    

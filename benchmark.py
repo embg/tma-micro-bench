@@ -26,9 +26,9 @@ def benchmark(M, provider):
     if provider == "copy_2d_tma_grid_const":
         def gc():
             torch.ops.tma_kernels.add1_tma_grid_const(A)
-        ms, min_ms, max_ms = triton.testing.do_bench(
+        ms, min_ms, max_ms = triton.testing.do_bench_cudagraph(
             lambda: gc(),
-            warmup = 25, rep = rep, quantiles = [0.5, 0.2, 0.8]
+            rep = rep, return_mode="min"
         )
     elif provider == "byref_incl_memcpy":
         def byref():
@@ -48,9 +48,9 @@ def benchmark(M, provider):
         cpu_desc = torch.empty(128, device="cpu", dtype=torch.uint8, pin_memory=True)
         torch.ops.tma_kernels.fill_tma_desc_for_tensor(cpu_desc, A)
         gpu_desc = cpu_desc.cuda(non_blocking=True)
-        ms, min_ms, max_ms = triton.testing.do_bench(
+        ms, min_ms, max_ms = triton.testing.do_bench_cudagraph(
             lambda: torch.ops.tma_kernels.add1_tma_ondevice(gpu_desc, A),
-            warmup = 25, rep = rep, quantiles = [0.5, 0.2, 0.8]
+            rep = rep, return_mode="min"
         )
     else:
         return

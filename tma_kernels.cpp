@@ -35,6 +35,26 @@ void add1_tma_ondevice(at::Tensor desc, at::Tensor tensor) {
   );
 }
 
+void copy_on_64_SMs(at::Tensor dst, at::Tensor src) {
+  if (src.scalar_type() != at::kFloat || dst.scalar_type() != at::kFloat) {
+    throw std::runtime_error("scalar_type() must be at::kFloat");
+  }
+  if (src.dim() != 1 || dst.dim() != 1) {
+    throw std::runtime_error("dim() must equal 1");
+  }
+  if (src.size(0) != dst.size(0)) {
+    throw std::runtime_error("src.size(0) != dst.size(0)");
+  }
+  if (src.size(0) < 64 * 32 || src.size(0) % (64 * 32) != 0) {
+    throw std::runtime_error("invalid size");
+  }
+  launch_bad_copy_kernel(
+      dst.data_ptr<float>(),
+      src.data_ptr<float>(),
+      src.size(0)
+  );
+}
+
 void fill_tma_desc_for_tensor(at::Tensor cpu_desc, at::Tensor device_tensor) {
   if (!device_tensor.device().is_cuda()) {
     throw std::runtime_error("device_tensor must be on cuda");
@@ -51,4 +71,5 @@ TORCH_LIBRARY(tma_kernels, m) {
   m.def("fill_tma_desc_for_tensor", fill_tma_desc_for_tensor);
   m.def("add1_tma_byref_excl_memcpy", add1_tma_byref_excl_memcpy);
   m.def("add1_tma_ondevice", add1_tma_ondevice);
+  m.def("copy_on_64_SMs", copy_on_64_SMs);
 }
