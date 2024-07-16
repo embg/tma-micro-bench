@@ -10,7 +10,6 @@ setup(
                 "tma_kernels.cpp",
                 "tma_kernels_cuda.cu",
             ],
-            # extra_compile_args = {"nvcc": ["-ptx", "--generate-code=arch=compute_90a,code=[sm_90a]"]},
             libraries=["cuda"]
         )
     ],
