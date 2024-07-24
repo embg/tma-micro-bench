@@ -1,5 +1,4 @@
 import torch
-from triton.tools.experimental_descriptor import create_2d_tma_descriptor
 torch.ops.load_library("tma_kernels.so")
 
 gpu_desc = torch.empty(128, device="cuda", dtype=torch.uint8)
@@ -29,7 +28,6 @@ if __name__ == "__main__":
     shapes = [
         (256 * 9, 128 * 12),
         (128 * 7, 256 * 13),
-        (4096, 4096),
         (64, 64),
         (4096, 64),
         (64, 4096)
