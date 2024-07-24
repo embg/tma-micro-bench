@@ -9,6 +9,6 @@ python test.py
 python benchmark.py
 ```
 
-![graph](graph.png)
-
 Note: `test.py` is currently broken so that NVIDIA folks can repro the bug I'm seeing with cpfence. `benchmark.py` does not use the broken function. Please comment the last line of `test.py` if you just want to make pretty charts.
+
+![graph](graph.png)
