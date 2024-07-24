@@ -6,8 +6,8 @@
 
 # Lock GPU clocks
 sudo nvidia-smi -i 5 -pm 1 >&/dev/null                # persistent mode
-sudo nvidia-smi --power-limit=330 -i 5 >& /dev/null   # lock to 330 W
-sudo nvidia-smi -lgc 1140 -i 5 >& /dev/null            # lock to 1410 MHz.  The max on A100 is 1410 MHz
+sudo nvidia-smi --power-limit=700 -i 5 >& /dev/null   # lock to 700 W
+sudo nvidia-smi -lgc 1980 -i 5 >& /dev/null           # lock to 1980 MHz.
 
 # TODO: On my devgpu, device 6 is apparently attached to NUMA node 3.  How did
 # I discover this?
