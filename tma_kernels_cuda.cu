@@ -90,7 +90,7 @@ __device__ __forceinline__
 void tma_descriptor_cp_fence_release(void* gmem_desc_ptr, void* smem_desc)
 {
   uint64_t gmem_int_desc = reinterpret_cast<uint64_t>(gmem_desc_ptr);
-  uint32_t smem_int_desc = cast_smem_ptr_to_uint(&smem_desc);
+  uint32_t smem_int_desc = cast_smem_ptr_to_uint(smem_desc);
   asm volatile (
     "tensormap.cp_fenceproxy.global.shared::cta.tensormap::generic.release.gpu.sync.aligned [%0], [%1], 128;"
     :: "l"(gmem_int_desc), "r"(smem_int_desc));
